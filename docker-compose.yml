@@ -1,0 +1,66 @@
+services:
+  api:
+    image: ${DOCKER_REGISTRY-}commentsapp-api
+    build:
+      context: .
+      dockerfile: CommentsApp.Api/Dockerfile
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      mssql:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
+    networks:
+      - api
+      - file_api
+
+  file_api:
+    image: ${DOCKER_REGISTRY-}commentsapp-fileapi
+    build:
+      context: .
+      dockerfile: CommentsApp.FileApi/Dockerfile
+    ports:
+      - "9000:8080"
+      - "9001:8081"
+    volumes:
+      - "file_api:/app/files"
+    networks:
+      - file_api
+
+  mssql:
+    image: ${DOCKER_REGISTRY-}commentsapp-mssql
+    build:
+      context: ./MSSQL_Docker/
+      dockerfile: Dockerfile
+    volumes:
+      - "mssql:/var/opt/mssql"
+    ports:
+      - "1434:1433"
+    networks:
+      - api
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6380:6379"
+    networks:
+      - api
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  mssql:
+  file_api:
+
+
+networks:
+  api:
+  file_api:
